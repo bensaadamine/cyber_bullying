@@ -1,0 +1,11 @@
+# TP1 - direct dependencies (pinned)
+requests==2.34.2
+pandas==3.1.1
+numpy==2.4.6
+pillow==13.0.0
+emoji==2.16.0
+matplotlib==3.11.2
+scikit-learn==1.9.1
+mlflow==3.18.0
+notebook
+ipykernel

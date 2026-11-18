@@ -1,0 +1,35 @@
+{
+  "keywords": {
+    "insult": "ugly OR loser OR stupid OR idiot OR pathetic OR fat",
+    "threat": "\"kill yourself\" OR kys OR \"watch your back\" OR \"find you\" OR \"hurt you\"",
+    "hate": "subhuman OR \"go back to\" OR disgusting OR vermin OR worthless",
+    "irony": "cope OR seethe OR ratio OR \"nobody asked\" OR \"ok boomer\"",
+    "neutral": null
+  },
+  "subreddits": {
+    "insult": [
+      "RoastMe",
+      "gaming"
+    ],
+    "threat": [
+      "bullying",
+      "TrueOffMyChest"
+    ],
+    "hate": [
+      "TrueOffMyChest",
+      "unpopularopinion"
+    ],
+    "irony": [
+      "memes",
+      "unpopularopinion"
+    ],
+    "neutral": [
+      "AskReddit",
+      "CasualConversation"
+    ]
+  },
+  "image_subreddits": [
+    "memes",
+    "dankmemes"
+  ]
+}
