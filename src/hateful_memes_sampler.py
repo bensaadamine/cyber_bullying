@@ -1,102 +1,63 @@
 """
-hateful_memes_sampler.py — TP1 : 2nd source = Hateful Memes (Meta, Kiela et al. 2020)
-=====================================================================================
-Dataset : https://huggingface.co/datasets/cs5242-hateful-memes/hateful-memes-data
-          (mirror of the Facebook Hateful Memes Challenge — non-commercial research
-           license: cite it, do NOT republish the images publicly)
-
-The full dataset is ~8 GB. We never download it: `streaming=True` reads the
-Parquet shards row by row, and we stop as soon as our quota is reached.
-
-Original labels: 1 = hateful, 0 = not hateful.
-We keep a BALANCED sample: N_PER_LABEL of each.
-
-Output: data/hateful_memes_raw.csv  (same columns as reddit_raw.csv)
-        data/images/hm_<id>.jpg
+hateful_memes_sampler.py — TP1 : 2nd source = Hateful Memes (text + image)
+=========================================================================
+Dataset: Meta Hateful Memes (Kiela et al. 2020), Hugging Face mirror.
+License: non-commercial research -> cite it, never republish the images.
+The full dataset is ~8 GB: "streaming" reads it row by row, so we only
+download what we keep. Original label: 1 = hateful, 0 = not hateful.
+Output: data/hateful_memes_raw.csv + data/images/hm_<id>.jpg
 """
 
 import json
-from datetime import datetime, timezone
-from pathlib import Path
 
 import pandas as pd
 from datasets import load_dataset
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = ROOT / "data"
-IMG_DIR = DATA_DIR / "images"
+from utils import DATA, ROOT, log_to_mlflow
 
 DATASET = "cs5242-hateful-memes/hateful-memes-data"
-SPLIT = "train"
-N_PER_LABEL = 100            # 100 hateful + 100 not hateful = 200 memes
+N_PER_LABEL = 100              # 100 hateful + 100 not hateful
 SEED = 42
-SHUFFLE_BUFFER = 2000        # streaming shuffle = random pick inside a 2000-row window
-MAX_SIDE = 512               # downscale big images (TP2 will resize to 224 anyway)
 
 
 def main():
-    """Stream the dataset, keep a balanced sample of memes, save images + CSV, log to MLflow."""
-    import mlflow
+    """Stream the dataset, keep a balanced sample, save the images and the CSV."""
+    (DATA / "images").mkdir(parents=True, exist_ok=True)
+    stream = load_dataset(DATASET, split="train", streaming=True).shuffle(seed=SEED, buffer_size=2000)
 
-    IMG_DIR.mkdir(parents=True, exist_ok=True)
-
-    # 1. open the dataset as a STREAM (nothing downloaded up front)
-    ds = load_dataset(DATASET, split=SPLIT, streaming=True)
-    ds = ds.shuffle(seed=SEED, buffer_size=SHUFFLE_BUFFER)
-
-    # 2. take rows until each label has N_PER_LABEL examples
-    quota = {0: N_PER_LABEL, 1: N_PER_LABEL}
-    rows, seen = [], 0
-    for ex in ds:
-        seen += 1
+    left = {0: N_PER_LABEL, 1: N_PER_LABEL}          # how many we still need per label
+    rows = []
+    for ex in stream:
         label = int(ex["label"])
-        if label not in quota or quota[label] == 0:
+        if left.get(label, 0) == 0:
             continue
-
-        img = ex["image"].convert("RGB")               # PIL image, decoded by `datasets`
-        img.thumbnail((MAX_SIDE, MAX_SIDE))
-        name = f"hm_{ex['id']}"
-        path = IMG_DIR / f"{name}.jpg"
+        path = DATA / "images" / f"hm_{ex['id']}.jpg"
+        img = ex["image"].convert("RGB")
+        img.thumbnail((512, 512))                     # smaller files, enough for 224x224 later
         img.save(path, "JPEG", quality=90)
-
         rows.append({
-            "id": name,
-            "date": "",                                # memes have no publication date
-            "text": ex["text"],                        # caption written on the meme
-            "media": str(path.relative_to(ROOT)).replace("\\", "/"),
+            "id": f"hm_{ex['id']}",
+            "date": "",                               # memes have no date
+            "text": ex["text"],                       # caption written on the meme
+            "media": path.relative_to(ROOT).as_posix(),
             "url": f"https://huggingface.co/datasets/{DATASET}",
             "source": "hateful_memes",
-            "metadata": json.dumps({
-                "dataset_split": SPLIT,
-                "original_label": label,               # 1 hateful / 0 not hateful
-                "query_group": "meme",
-            }),
+            "metadata": json.dumps({"original_label": label, "query_group": "meme"}),
         })
-        quota[label] -= 1
-        if sum(quota.values()) == 0:
+        left[label] -= 1
+        if sum(left.values()) == 0:
             break
 
     df = pd.DataFrame(rows)
-    out = DATA_DIR / "hateful_memes_raw.csv"
+    out = DATA / "hateful_memes_raw.csv"
     df.to_csv(out, index=False, encoding="utf-8")
-    n_hate = sum(json.loads(m)["original_label"] == 1 for m in df["metadata"])
-    print(f"Read {seen} rows of the stream -> kept {len(df)} memes "
-          f"({n_hate} hateful / {len(df) - n_hate} not hateful)")
-    print(f"Saved -> {out}")
+    print(f"Saved {len(df)} memes -> {out}")
 
-    # 3. MLflow
-    mlflow.set_tracking_uri(f"sqlite:///{ROOT / 'mlflow.db'}")
-    mlflow.set_experiment("TP1_Collecte")
-    with mlflow.start_run(run_name="sample_hateful_memes"):
-        mlflow.log_params({
-            "source": DATASET, "split": SPLIT, "n_per_label": N_PER_LABEL,
-            "seed": SEED, "shuffle_buffer": SHUFFLE_BUFFER, "max_side": MAX_SIDE,
-            "license": "Meta Hateful Memes (non-commercial research)",
-            "sampled_on": datetime.now(timezone.utc).date().isoformat(),
-        })
-        mlflow.log_metrics({"n_memes": len(df), "n_hateful": n_hate,
-                            "rows_streamed": seen})
-        mlflow.log_artifact(str(out), artifact_path="data")
+    log_to_mlflow("TP1_Collecte", "sample_hateful_memes",
+                  params={"dataset": DATASET, "n_per_label": N_PER_LABEL, "seed": SEED,
+                          "license": "Meta Hateful Memes (non-commercial research)"},
+                  metrics={"n_memes": len(df)},
+                  files=[out])
 
 
 if __name__ == "__main__":

@@ -28,7 +28,8 @@ TP_FR/
 │   ├── reddit_scraper.py               # source 1 : Reddit (texte)
 │   ├── hateful_memes_sampler.py        # source 2 : Hateful Memes (texte + image)
 │   ├── cleaning.py                     # Partie 3 : fusion + nettoyage
-│   └── fourchan_scraper.py             # non utilisé (robots.txt, voir §3)
+│   ├── check_robots_4chan.py           # preuve : robots.txt de 4chan interdit le scraping (§3)
+│   └── utils.py                        # chemins + fonction MLflow communs
 ├── reports/tp1_distribution.png
 ├── mini_report.md                      # Partie 4.3 (généré par le notebook)
 ├── mlflow.db / mlruns/                 # Partie 6 : suivi MLflow
@@ -67,7 +68,7 @@ corpus (aux suppressions Reddit près).
 | **Reddit** (archive Arctic Shift) | ✅ source 1 — texte | Gratuit, sans clé, public, score de votes. L'API officielle (PRAW) n'accepte plus de nouvelles clés depuis le 31/10/2026 ; Arctic Shift est le successeur de Pushshift. |
 | **Hateful Memes** (Meta, Kiela et al. 2020 — miroir Hugging Face `cs5242-hateful-memes/hateful-memes-data`) | ✅ source 2 — texte + image | Mèmes annotés haineux / non haineux : vraies paires texte-image, sans visage de personne privée. Licence Meta *non-commercial research* : citée ici, images non republiées. |
 | X / Twitter | ❌ | Plus de lecture gratuite (API payante), snscrape et Nitter hors service. |
-| 4chan (API officielle) | ❌ | `robots.txt` de `a.4cdn.org` : `Disallow: /` → respecté. `fourchan_scraper.py` vérifie le robots.txt et s'arrête ; il est conservé comme preuve. Le contenu 4chan reste présent indirectement via r/4chan et r/greentext. |
+| 4chan (API officielle) | ❌ | `robots.txt` de `a.4cdn.org` : `Disallow: /` → respecté. `check_robots_4chan.py` affiche ce robots.txt (preuve de la vérification). Le contenu 4chan reste présent indirectement via r/4chan et r/greentext. |
 | YouTube | ❌ (choix) | Commentaires jugés peu représentatifs du harcèlement. |
 
 **Pourquoi pas d'images Reddit ?** La v1 contenait 80 mèmes Reddit (r/memes, r/dankmemes,
@@ -205,7 +206,7 @@ python src/data_validation.py         # contrôles + reports/data_quality_report
 | Annotation texte | 600 publications (200 mèmes + 400 Reddit stratifiés), guide `reports/annotation_guidelines.md` | ≥ 500 exigées, toutes les classes représentées |
 | Annotation image | Labels experts du dataset Hateful Memes | Annotation manuelle longue et peu fiable sur des mèmes |
 | Prétraitement texte | Depuis le texte brut ; `<url>`, `<user>`, emojis en texte, ponctuation et hashtags conservés | Ces éléments portent l'ironie et l'offense |
-| Prétraitement image | Intégrité, doublons MD5, RGB, 224×224 avec padding | Format attendu par ResNet50, mème entier conservé |
+| Prétraitement image | Intégrité, doublons exacts, RGB, 224×224 avec padding | Format attendu par ResNet50, mème entier conservé |
 | Découpage | `StratifiedGroupKFold` ≈ 70/15/15, groupes = fil Reddit / légende de mème | Proportions conservées, pas de fuite de données |
 | Rééquilibrage | Sous-échantillonnage `non_toxic` → 150, sur-échantillonnage → 100 (max ×5) | Train uniquement ; ratio 37 → 5 |
 | Validation | 7 contrôles automatiques (`data_validation.py`, code retour ≠ 0 si échec) | Qualité vérifiable à chaque exécution |
