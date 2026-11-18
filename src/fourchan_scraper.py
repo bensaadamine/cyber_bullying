@@ -56,6 +56,7 @@ _last_call = 0.0
 # 2. Polite HTTP: never more than 1 request per second (API rule #1)
 # --------------------------------------------------------------------------
 def get(url, as_json=True):
+    """GET a 4chan URL, waiting so we never exceed 1 request per second."""
     global _last_call
     wait = 1.1 - (time.time() - _last_call)
     if wait > 0:
@@ -111,6 +112,7 @@ def match_group(text):
 
 
 def make_row(board, thread_no, post, text, group, n_replies_to_post, media=""):
+    """Build one output row (id, date, text, media, url, source, metadata)."""
     return {
         "id": f"4c_{board}_{post['no']}",
         "date": datetime.fromtimestamp(post["time"], tz=timezone.utc).isoformat(),
@@ -146,6 +148,7 @@ def download_image(board, post):
 # 4. Board collection
 # --------------------------------------------------------------------------
 def collect_board(board, rng):
+    """Collect keyword-matched posts, random posts and images from one board."""
     print(f"[/{board}/] reading catalog")
     catalog = get(f"{API}/{board}/catalog.json")
     threads = [t for page in catalog for t in page["threads"] if not t.get("sticky")]
@@ -208,6 +211,7 @@ def collect_board(board, rng):
 # 5. Main + MLflow
 # --------------------------------------------------------------------------
 def main():
+    """Check robots.txt and worksafe boards, scrape them, save CSV, log to MLflow."""
     import mlflow
 
     IMG_DIR.mkdir(parents=True, exist_ok=True)

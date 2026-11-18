@@ -133,6 +133,7 @@ def keyword_regex(query):
 
 
 def is_valid(text):
+    """True if the text is real content (not deleted/removed, at least 15 characters)."""
     return (
         isinstance(text, str)
         and text not in ("[deleted]", "[removed]")
@@ -232,6 +233,7 @@ def download_image(url, name):
 
 
 def collect_image_posts():
+    """Collect image posts from meme subreddits and download their images (disabled since v2)."""
     rows = []
     per_sub = MAX_IMAGES // len(IMAGE_SUBREDDITS)
     for sub in IMAGE_SUBREDDITS:
@@ -266,6 +268,7 @@ def collect_image_posts():
 # 6. Main + MLflow tracking
 # --------------------------------------------------------------------------
 def main():
+    """Collect every (group, subreddit) pair, save the raw CSV and log to MLflow."""
     import mlflow
 
     IMG_DIR.mkdir(parents=True, exist_ok=True)

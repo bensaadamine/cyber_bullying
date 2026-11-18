@@ -45,6 +45,7 @@ SEXUAL_WORDS = re.compile(
 # Text cleaning: one function, each line = one documented operation
 # --------------------------------------------------------------------------
 def clean_text(text):
+    """Clean one text: unicode, URLs, mentions, markdown, emojis to text, lowercase."""
     t = unicodedata.normalize("NFKC", str(text))              # unify unicode
     t = html.unescape(t)                                      # &amp; -> &
     t = re.sub(r"\[(removed|deleted)\]", " ", t, flags=re.I)  # reddit markers
@@ -68,6 +69,7 @@ def step(df, mask_keep, name, log):
 
 
 def main():
+    """Merge raw sources, apply each cleaning step, save the clean CSV and log to MLflow."""
     import mlflow
 
     # one raw file per source -> concatenated into a single corpus

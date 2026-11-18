@@ -1,3 +1,7 @@
+# Projet fil rouge — Cyberbullying Detection (texte + image)
+
+> TP1 : §1–8 · TP2 : §9
+
 # TP1 — Collecte et exploration des données
 **Projet fil rouge MLOps : Cyberbullying Detection sur données multimodales (texte + image)**
 FST — IDS 5 — 2026-2027
@@ -172,7 +176,47 @@ Choix justifiés :
 ```bash
 dvc diff data-v1 data-v2                  # fichiers modifiés entre deux versions
 git checkout data-v1 && dvc checkout      # revenir aux données v1
-git checkout master  && dvc checkout      # revenir à la dernière version
+git checkout main    && dvc checkout      # revenir à la dernière version
 ```
 
 Remote DVC : dossier local `../dvc_storage` (données non publiées).
+
+---
+
+## 9. TP2 — Annotation, prétraitement et préparation du dataset
+
+Même organisation que le TP1 : chaque étape est un script de `src/`, l'analyse est dans
+`notebooks/TP2_preparation.ipynb`, les documents dans `reports/`.
+
+### Pipeline
+
+```bash
+python src/select_for_annotation.py   # 600 publications à annoter -> data/annotated/to_annotate.csv
+python src/image_labels.py            # labels images (experts Hateful Memes)
+python src/text_preprocessing.py      # -> data/processed/cyberbullying_processed.csv
+python src/image_preprocessing.py     # -> data/processed/images_224/
+python src/split_data.py              # -> train.csv, validation.csv, test.csv
+python src/rebalance.py               # -> train_balanced.csv (train uniquement)
+python src/data_validation.py         # contrôles + reports/data_quality_report.md
+```
+
+| Étape | Choix | Pourquoi |
+|---|---|---|
+| Annotation texte | 600 publications (200 mèmes + 400 Reddit stratifiés), guide `reports/annotation_guidelines.md` | ≥ 500 exigées, toutes les classes représentées |
+| Annotation image | Labels experts du dataset Hateful Memes | Annotation manuelle longue et peu fiable sur des mèmes |
+| Prétraitement texte | Depuis le texte brut ; `<url>`, `<user>`, emojis en texte, ponctuation et hashtags conservés | Ces éléments portent l'ironie et l'offense |
+| Prétraitement image | Intégrité, doublons MD5, RGB, 224×224 avec padding | Format attendu par ResNet50, mème entier conservé |
+| Découpage | `StratifiedGroupKFold` ≈ 70/15/15, groupes = fil Reddit / légende de mème | Proportions conservées, pas de fuite de données |
+| Rééquilibrage | Sous-échantillonnage `non_toxic` → 150, sur-échantillonnage → 100 (max ×5) | Train uniquement ; ratio 37 → 5 |
+| Validation | 7 contrôles automatiques (`data_validation.py`, code retour ≠ 0 si échec) | Qualité vérifiable à chaque exécution |
+
+### Traçabilité
+- **MLflow** — expérience `TP2_Preparation` : runs `text_preprocessing`, `image_preprocessing`,
+  `split`, `rebalance`, `dataset_summary` (paramètres, proportions, tailles, rapport et CSV en artefacts).
+- **DVC** — versions :
+
+| Tag | Contenu |
+|---|---|
+| `data-v2` | Corpus brut nettoyé du TP1 (1 510 publications) |
+| `data-v3` | Dataset annoté (`data/annotated/`) |
+| `data-v4` | Dataset prétraité, découpé et rééquilibré (`data/processed/`) |

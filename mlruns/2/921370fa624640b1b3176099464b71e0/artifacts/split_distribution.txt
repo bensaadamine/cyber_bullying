@@ -1,0 +1,8 @@
+                     train  validation  test
+label                                       
+hate_discrimination     68          13    13
+insult_mockery          57          11    15
+irony_provocation       75          15    14
+non_toxic              221          45    44
+threat_intimidation      6           2     1
+TOTAL                  427          86    87

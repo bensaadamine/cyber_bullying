@@ -11,3 +11,5 @@ notebook
 ipykernel
 dvc
 datasets
+imagehash
+imbalanced-learn

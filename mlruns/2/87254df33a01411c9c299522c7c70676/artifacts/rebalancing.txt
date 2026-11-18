@@ -1,0 +1,8 @@
+                     before  after
+label                             
+hate_discrimination      68    100
+insult_mockery           57    100
+irony_provocation        75    100
+non_toxic               221    150
+threat_intimidation       6     30
+TOTAL                   427    480

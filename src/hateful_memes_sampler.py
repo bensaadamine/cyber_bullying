@@ -35,6 +35,7 @@ MAX_SIDE = 512               # downscale big images (TP2 will resize to 224 anyw
 
 
 def main():
+    """Stream the dataset, keep a balanced sample of memes, save images + CSV, log to MLflow."""
     import mlflow
 
     IMG_DIR.mkdir(parents=True, exist_ok=True)
