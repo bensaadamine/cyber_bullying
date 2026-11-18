@@ -42,6 +42,15 @@ KEYWORDS = {
     "hate":    'subhuman OR "go back to" OR disgusting OR vermin OR worthless',
     "irony":   'cope OR seethe OR ratio OR "nobody asked" OR "ok boomer"',
     "neutral": None,          # no keyword: random recent comments
+    "roast":   None,          # r/RoastMe: every top-level comment IS a roast
+    # --- added groups (v2) ---
+    "hate_immigration": 'invaders OR illegals OR parasites OR "deport them" OR '
+                        '"third world" OR "go back to your country" OR "send them back"',
+    "provocation_sports": 'cope OR seethe OR clown OR clowns OR bottlers OR '
+                          '"cry more" OR "stay mad" OR ratio',
+    "threat_quoted": '"kill you" OR "kill me" OR "know where you live" OR '
+                     '"knows where i live" OR "threatened to" OR "you\'re dead" OR '
+                     '"watch your back"',
 }
 
 SUBREDDITS = {
@@ -50,12 +59,30 @@ SUBREDDITS = {
     "hate":    ["TrueOffMyChest", "unpopularopinion", "4chan"],
     "irony":   ["memes", "unpopularopinion", "greentext"],
     "neutral": ["AskReddit", "CasualConversation"],
+    "roast":   ["RoastMe"],
+    # general-audience subs (not tied to one political side) -> hate, not opinion
+    "hate_immigration":   ["europe", "unitedkingdom", "immigration"],
+    # sports trash talk = classic provocation / banter
+    "provocation_sports": ["soccer", "nba"],
+    # real threats are deleted fast; victims QUOTE the threats they received
+    "threat_quoted":      ["legaladvice", "relationship_advice"],
 }
 
-# r/4chan + r/greentext = screenshots of 4chan posts, reposted on Reddit.
-# (4chan itself is excluded: its robots.txt says "Disallow: /")
-IMAGE_SUBREDDITS = ["memes", "dankmemes", "4chan", "greentext"]  # NOT RoastMe (faces)
-MAX_IMAGES = 80
+# group-specific settings (default: PER_QUERY comments, any score, any depth)
+GROUP_SETTINGS = {
+    "roast": {
+        "per_query": 200,     # dense source of mockery, but capped to limit
+                              # class imbalance (insults would dominate)
+        "min_score": 5,       # upvoted roasts = clearly recognised as mockery
+        "top_level": True,    # direct roasts only; replies = banter / OP thanks
+    },
+}
+
+# v1 collected 80 memes from memes/dankmemes/4chan/greentext: random content,
+# no link with cyberbullying -> v2: images come from the Hateful Memes dataset
+# (src/hateful_memes_sampler.py). Reddit = text only.
+IMAGE_SUBREDDITS = []
+MAX_IMAGES = 0
 
 session = requests.Session()
 session.headers["User-Agent"] = "TP-FR-cyberbullying-student/1.0 (academic project)"
@@ -149,6 +176,9 @@ def collect_comments(subreddit, group, query):
     Strategy: try server-side keyword search first. Busy subreddits often
     time out on keyword search -> fallback: fetch comments and filter locally.
     """
+    cfg = GROUP_SETTINGS.get(group, {})
+    per_query = cfg.get("per_query", PER_QUERY)
+    min_score = cfg.get("min_score")
     rows, before = [], DATE_BEFORE
     use_server_search = query is not None
     regex = keyword_regex(query) if query else None
@@ -159,6 +189,8 @@ def collect_comments(subreddit, group, query):
                   "fields": "id,author,body,created_utc,subreddit,score,link_id"}
         if use_server_search:
             params["body"] = query
+        if cfg.get("top_level"):
+            params["parent_id"] = ""                  # empty = top-level comments
 
         items = api_get("comments/search", params)
         if items is None and use_server_search:
@@ -173,8 +205,10 @@ def collect_comments(subreddit, group, query):
                 continue
             if regex and not use_server_search and not regex.search(it["body"]):
                 continue
+            if min_score is not None and (it.get("score") or 0) < min_score:
+                continue
             rows.append(make_row(it, group, "comment"))
-            if len(rows) >= PER_QUERY:
+            if len(rows) >= per_query:
                 return rows
         before = items[-1]["created_utc"]             # next page = older items
     return rows
@@ -244,7 +278,8 @@ def main():
             print(f"   collected {len(rows)}")
             all_rows += rows
 
-    all_rows += collect_image_posts()
+    if IMAGE_SUBREDDITS:                              # disabled since v2
+        all_rows += collect_image_posts()
 
     df = pd.DataFrame(all_rows).drop_duplicates(subset="id")
     out = DATA_DIR / "reddit_raw.csv"
@@ -263,6 +298,7 @@ def main():
             "scraped_on": datetime.now(timezone.utc).date().isoformat(),
         })
         mlflow.log_dict({"keywords": KEYWORDS, "subreddits": SUBREDDITS,
+                         "group_settings": GROUP_SETTINGS,
                          "image_subreddits": IMAGE_SUBREDDITS}, "collection_config.json")
         mlflow.log_metrics({
             "n_rows": len(df),

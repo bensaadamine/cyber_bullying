@@ -1,0 +1,5 @@
+outs:
+- md5: 7d50e25884585b9c32f55df7d3c8ab0e
+  size: 54172
+  hash: md5
+  path: hateful_memes_raw.csv

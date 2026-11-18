@@ -9,3 +9,5 @@ scikit-learn==1.9.1
 mlflow==3.18.0
 notebook
 ipykernel
+dvc
+datasets

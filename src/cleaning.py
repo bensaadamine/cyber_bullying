@@ -1,7 +1,7 @@
 """
 cleaning.py — TP1 Part 3 : cleaning and structuring
 ===================================================
-Input : data/reddit_raw.csv
+Input : data/reddit_raw.csv + data/hateful_memes_raw.csv
 Output: data/cyberbullying_raw.csv        (raw corpus, all metadata kept)
         data/cyberbullying_raw_clean.csv  (id, date, clean_text, media, url, source)
 
@@ -70,8 +70,12 @@ def step(df, mask_keep, name, log):
 def main():
     import mlflow
 
-    raw = pd.read_csv(DATA_DIR / "reddit_raw.csv")
+    # one raw file per source -> concatenated into a single corpus
+    raw_files = ["reddit_raw.csv", "hateful_memes_raw.csv"]
+    raw = pd.concat([pd.read_csv(DATA_DIR / f) for f in raw_files
+                     if (DATA_DIR / f).exists()], ignore_index=True)
     raw["media"] = raw["media"].fillna("")
+    print(raw["source"].value_counts().to_string())
 
     # Part 5 structure: the raw corpus is saved under its official name
     raw.to_csv(DATA_DIR / "cyberbullying_raw.csv", index=False, encoding="utf-8")
